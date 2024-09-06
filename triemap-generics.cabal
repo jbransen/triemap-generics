@@ -1,0 +1,11 @@
+cabal-version:      2.4
+name:               triemap-generics
+version:            0.1.0.0
+author:             Jeroen Bransen
+
+library
+    exposed-modules:  TrieMap1
+    build-depends:    base, containers, mtl
+    hs-source-dirs:   .
+    default-language: GHC2021
+    ghc-options:      -Wall
