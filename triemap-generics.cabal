@@ -4,8 +4,8 @@ version:            0.1.0.0
 author:             Jeroen Bransen
 
 library
-    exposed-modules:  TrieMap1, TrieMap2
-    build-depends:    base, containers, mtl
+    exposed-modules:  TrieMap1, TrieMap2, TrieMap3, TrieMap3.Class, TrieMap3.TH
+    build-depends:    base, containers, mtl, template-haskell, th-extras
     hs-source-dirs:   .
     default-language: GHC2021
     ghc-options:      -Wall
