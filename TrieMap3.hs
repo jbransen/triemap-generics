@@ -21,7 +21,7 @@ $(deriveTriemap ''Maybe)
 
 
 exampleE :: TrieMap Expr Int
-exampleE = insertTM (Var "x" `App` Var "y") 10 $ emptyTM @Expr
+exampleE = insertTM (Var "x" `App` Var "y") 10 emptyTM
 
 -- Lookup a value, returns 'Just 10'
 example :: Maybe Int

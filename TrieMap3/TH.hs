@@ -27,13 +27,9 @@ deriveTriemap nm = do
           _  -> foldr (\t b -> ConT ''TrieMap `AppT` t `AppT` b) (VarT v) fs
     return (fnm, Bang NoSourceUnpackedness NoSourceStrictness, tp)
   let crec = RecC nNonEmpty fields
-  nData <- newName $ "TrieMap_" ++ nameBase nm
-  let dec = DataD [] nData (PlainTV v () : tyvars) Nothing [cempty, crec] []
 
-  -- type TrieMap a = ...
   let typeWithVars = foldl AppT (ConT nm) $ map (VarT . nameOfBinder) tyvars
-  let rhWithVars = foldl AppT (ConT nData `AppT` VarT v) $ map (VarT . nameOfBinder) tyvars
-  let tmType = TySynInstD $ TySynEqn Nothing (ConT ''TrieMap `AppT` typeWithVars `AppT` VarT v) rhWithVars
+  let dataDef = DataInstD [] (Just [PlainTV v ()]) (ConT ''TrieMap `AppT` typeWithVars `AppT` VarT v) Nothing [cempty, crec] []
 
   -- emptyTM
   let fEmpty = FunD 'emptyTM [Clause [] (NormalB $ ConE nEmpty) []]
@@ -55,8 +51,8 @@ deriveTriemap nm = do
   let vf = mkName "f"
   let mkEmpty = RecConE nNonEmpty
         [ (fnm, case tp of
-              AppT (AppT (ConT c) t1) t2
-                | c == ''TrieMap -> VarE 'emptyTM `AppTypeE` t1 `AppTypeE` t2
+              AppT (AppT (ConT c) _) _
+                | c == ''TrieMap -> VarE 'emptyTM
               _ -> ConE 'Nothing)
         | (fnm, _, tp) <- fields
         ]
@@ -81,21 +77,19 @@ deriveTriemap nm = do
           [ FunD g [Clause [VarP vve]
                      (NormalB $ ConE 'Just
                        `AppE` (VarE 'alterTM `AppE` VarE var `AppE` VarE nextg
-                               `AppE` (VarE 'fromMaybe `AppE` (VarE 'emptyTM `AppTypeE` tp) `AppE` VarE vve))) []]
+                               `AppE` (VarE 'fromMaybe `AppE` VarE 'emptyTM `AppE` VarE vve))) []]
           | let vve = mkName "e"
-          , ((g,nextg,var),tp) <- zip (zip3 funs (tail funs ++ [f]) (tail vars)) (tail fs)
+          , (g,nextg,var) <- zip3 funs (tail funs ++ [f]) (tail vars)
           ]
     pure $ Clause [ConP cnm [] (map VarP vars), VarP f, VarP tm] (NormalB body) wheres
-  -- we need the type signature to bring v in scope
-  tAlter <- SigD 'alterTM <$> [t| forall v. $(pure typeWithVars) -> (Maybe v -> Maybe v) -> TrieMap $(pure typeWithVars) v -> TrieMap $(pure typeWithVars) v |]
   let fAlter = FunD 'alterTM $ alterEmpty : alterCs
   
   -- The instance
   let ctx = [ ConT ''HasTrieMap `AppT` VarT (nameOfBinder tyvar) | tyvar <- tyvars ]
-  let inst = InstanceD Nothing ctx (ConT ''HasTrieMap `AppT` typeWithVars) [tmType, fEmpty, fLookup, tAlter, fAlter ]
+  let inst = InstanceD Nothing ctx (ConT ''HasTrieMap `AppT` typeWithVars) [dataDef, fEmpty, fLookup, fAlter ]
 
-  -- Returnthe types
-  pure [dec, inst]
+  -- Return the types
+  pure [inst]
 
 
 sanitizeName :: String -> String
