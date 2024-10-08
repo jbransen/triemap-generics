@@ -35,3 +35,21 @@ instance HasTrieMap Char where
   emptyTM = TrieMapChar IM.empty
   lookupTM i (TrieMapChar tm) = ord i `IM.lookup` tm
   alterTM i f (TrieMapChar tm) = TrieMapChar (IM.alter f (ord i) tm)
+
+-- * Helpers
+
+(|>) :: a -> (a -> b) -> b     -- Reverse application
+infixl 0 |>
+x |> f = f x
+
+(|>>) :: (HasTrieMap m1, HasTrieMap m2)
+      => ((Maybe (TrieMap m2 a) -> Maybe (TrieMap m2 a)) -> TrieMap m1 (TrieMap m2 a) -> TrieMap m1 (TrieMap m2 a))
+      -> (TrieMap m2 a -> TrieMap m2 a)
+      -> TrieMap m1 (TrieMap m2 a) -> TrieMap m1 (TrieMap m2 a)
+infixl 1 |>>
+(|>>) f g = f (Just . g . deMaybe)
+
+
+deMaybe :: HasTrieMap t => Maybe (TrieMap t a) -> TrieMap t a
+deMaybe Nothing  = emptyTM
+deMaybe (Just t) = t

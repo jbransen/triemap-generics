@@ -63,25 +63,17 @@ deriveTriemap nm = do
                |]
   let alterEmpty = Clause [ VarP ve, VarP vf, ConP nEmpty [] [] ] (NormalB alterEmp) []
   alterCs <- forM (zip cons fields) $ \((cnm, fs), (fnm, _, _)) -> do
+    -- Generate something like:
+    -- alterTM' (If a b c) f tm = tm {tm_If = tm_If tm |> alterTM' a |>> (alterTM' b |>> alterTM' c f)}
     let tm = mkName "tm"
     f <- newName "f"
-    funs <- replicateM (0 `max` (length fs - 1)) $ newName "g"
     vars <- forM fs $ \_ -> newName "v"
-    let body = RecUpdE (VarE tm) [(fnm, case vars of
-                                      [] -> VarE f `AppE` (VarE fnm `AppE` VarE tm)
-                                      (v1:_) -> VarE 'alterTM
-                                                `AppE` VarE v1
-                                                `AppE` VarE (head $ funs ++ [f])
-                                                `AppE` (VarE fnm `AppE` VarE tm))]
-    let wheres =
-          [ FunD g [Clause [VarP vve]
-                     (NormalB $ ConE 'Just
-                       `AppE` (VarE 'alterTM `AppE` VarE var `AppE` VarE nextg
-                               `AppE` (VarE 'fromMaybe `AppE` VarE 'emptyTM `AppE` VarE vve))) []]
-          | let vve = mkName "e"
-          , (g,nextg,var) <- zip3 funs (tail funs ++ [f]) (tail vars)
-          ]
-    pure $ Clause [ConP cnm [] (map VarP vars), VarP f, VarP tm] (NormalB body) wheres
+    let mkRhs [] = VarE f
+        mkRhs [x] = VarE 'alterTM `AppE` VarE x `AppE` VarE f
+        mkRhs (x:xs) = VarE '(|>>) `AppE` (VarE 'alterTM `AppE` VarE x) `AppE` mkRhs xs
+    let nexp = VarE '(|>) `AppE` (VarE fnm `AppE` VarE tm) `AppE` mkRhs vars
+    let body = RecUpdE (VarE tm) [(fnm, nexp)]
+    pure $ Clause [ConP cnm [] (map VarP vars), VarP f, VarP tm] (NormalB body) []
   let fAlter = FunD 'alterTM $ alterEmpty : alterCs
   
   -- The instance
